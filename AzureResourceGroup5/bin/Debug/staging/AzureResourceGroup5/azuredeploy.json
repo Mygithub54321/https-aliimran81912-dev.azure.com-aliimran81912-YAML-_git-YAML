@@ -1,0 +1,170 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "rajuSTORAGEACNTType": {
+      "type": "string",
+      "defaultValue": "Standard_LRS",
+      "allowedValues": [
+        "Standard_LRS",
+        "Standard_ZRS",
+        "Standard_GRS",
+        "Standard_RAGRS",
+        "Premium_LRS"
+      ]
+    },
+    "rajuVMName": {
+      "type": "string",
+      "minLength": 1
+    },
+    "rajuVMAdminUserName": {
+      "type": "string",
+      "minLength": 1
+    },
+    "rajuVMAdminPassword": {
+      "type": "securestring"
+    },
+    "rajuVMWindowsOSVersion": {
+      "type": "string",
+      "defaultValue": "2012-R2-Datacenter",
+      "allowedValues": [
+        "2008-R2-SP1",
+        "2012-Datacenter",
+        "2012-R2-Datacenter",
+        "Windows-Server-Technical-Preview"
+      ]
+    }},
+  "variables": {
+    "rajuSTORAGEACNTName": "[concat('rajuSTORAGEACNT', uniqueString(resourceGroup().id))]",
+    "RAJUvnetPrefix": "10.0.0.0/16",
+    "RAJUvnetSubnet1Name": "Subnet-1",
+    "RAJUvnetSubnet1Prefix": "10.0.0.0/24",
+    "RAJUvnetSubnet2Name": "Subnet-2",
+    "RAJUvnetSubnet2Prefix": "10.0.1.0/24",
+    "rajuVMImagePublisher": "MicrosoftWindowsServer",
+    "rajuVMImageOffer": "WindowsServer",
+    "rajuVMOSDiskName": "rajuVMOSDisk",
+    "rajuVMVmSize": "Standard_D2_v2",
+    "rajuVMVnetID": "[resourceId('Microsoft.Network/virtualNetworks', 'RAJUvnet')]",
+    "rajuVMSubnetRef": "[concat(variables('rajuVMVnetID'), '/subnets/', variables('RAJUvnetSubnet1Name'))]",
+    "rajuVMStorageAccountContainerName": "vhds",
+    "rajuVMNicName": "[concat(parameters('rajuVMName'), 'NetworkInterface')]"},
+  "resources": [
+    {
+      "name": "[variables('rajuSTORAGEACNTName')]",
+      "type": "Microsoft.Storage/storageAccounts",
+      "location": "[resourceGroup().location]",
+      "apiVersion": "2016-01-01",
+      "sku": {
+        "name": "[parameters('rajuSTORAGEACNTType')]"
+      },
+      "dependsOn": [ ],
+      "tags": {
+        "displayName": "rajuSTORAGEACNT"
+      },
+      "kind": "Storage"
+    },
+    {
+      "name": "RAJUvnet",
+      "type": "Microsoft.Network/virtualNetworks",
+      "location": "[resourceGroup().location]",
+      "apiVersion": "2016-03-30",
+      "dependsOn": [ ],
+      "tags": {
+        "displayName": "RAJUvnet"
+      },
+      "properties": {
+        "addressSpace": {
+          "addressPrefixes": [
+            "[variables('RAJUvnetPrefix')]"
+          ]
+        },
+        "subnets": [
+          {
+            "name": "[variables('RAJUvnetSubnet1Name')]",
+            "properties": {
+              "addressPrefix": "[variables('RAJUvnetSubnet1Prefix')]"
+            }
+          },
+          {
+            "name": "[variables('RAJUvnetSubnet2Name')]",
+            "properties": {
+              "addressPrefix": "[variables('RAJUvnetSubnet2Prefix')]"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "[variables('rajuVMNicName')]",
+      "type": "Microsoft.Network/networkInterfaces",
+      "location": "[resourceGroup().location]",
+      "apiVersion": "2016-03-30",
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/virtualNetworks', 'RAJUvnet')]"
+      ],
+      "tags": {
+        "displayName": "rajuVMNic"
+      },
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "ipconfig1",
+            "properties": {
+              "privateIPAllocationMethod": "Dynamic",
+              "subnet": {
+                "id": "[variables('rajuVMSubnetRef')]"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "[parameters('rajuVMName')]",
+      "type": "Microsoft.Compute/virtualMachines",
+      "location": "[resourceGroup().location]",
+      "apiVersion": "2015-06-15",
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts', variables('rajuSTORAGEACNTName'))]",
+        "[resourceId('Microsoft.Network/networkInterfaces', variables('rajuVMNicName'))]"
+      ],
+      "tags": {
+        "displayName": "rajuVM"
+      },
+      "properties": {
+        "hardwareProfile": {
+          "vmSize": "[variables('rajuVMVmSize')]"
+        },
+        "osProfile": {
+          "computerName": "[parameters('rajuVMName')]",
+          "adminUsername": "[parameters('rajuVMAdminUsername')]",
+          "adminPassword": "[parameters('rajuVMAdminPassword')]"
+        },
+        "storageProfile": {
+          "imageReference": {
+            "publisher": "[variables('rajuVMImagePublisher')]",
+            "offer": "[variables('rajuVMImageOffer')]",
+            "sku": "[parameters('rajuVMWindowsOSVersion')]",
+            "version": "latest"
+          },
+          "osDisk": {
+            "name": "rajuVMOSDisk",
+            "vhd": {
+              "uri": "[concat(reference(resourceId('Microsoft.Storage/storageAccounts', variables('rajuSTORAGEACNTName')), '2016-01-01').primaryEndpoints.blob, variables('rajuVMStorageAccountContainerName'), '/', variables('rajuVMOSDiskName'), '.vhd')]"
+            },
+            "caching": "ReadWrite",
+            "createOption": "FromImage"
+          }
+        },
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "[resourceId('Microsoft.Network/networkInterfaces', variables('rajuVMNicName'))]"
+            }
+          ]
+        }
+      }
+    }],
+  "outputs": {}
+}
