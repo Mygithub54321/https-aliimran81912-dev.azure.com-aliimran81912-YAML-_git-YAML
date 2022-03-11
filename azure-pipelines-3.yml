@@ -18,8 +18,7 @@ strategy:
       imageName: "windows-latest"
   maxParallel: 3
 
-pool:
-  vmImage: $(imageName)
+
 variables:
   solution: '**/*.sln'
   buildPlatform: 'Any CPU'
