@@ -7,8 +7,19 @@ trigger:
 - master
 
 pool:
-  vmImage: 'windows-latest'
+  vmImage: "ubuntu-latest"
+strategy:
+  matrix:
+    linux:
+      imageName: "ubuntu-latest"
+    mac:
+      imageName: "macOS-latest"
+    windows:
+      imageName: "windows-latest"
+  maxParallel: 3
 
+pool:
+  vmImage: $(imageName)
 variables:
   solution: '**/*.sln'
   buildPlatform: 'Any CPU'
@@ -31,17 +42,3 @@ steps:
   inputs:
     platform: '$(buildPlatform)'
     configuration: '$(buildConfiguration)'
-pool:
-  vmImage: "ubuntu-latest"
-  strategy:
-  matrix:
-    linux:
-      imageName: "ubuntu-latest"
-    mac:
-      imageName: "macOS-latest"
-    windows:
-      imageName: "windows-latest"
-  maxParallel: 3
-
-pool:
-  vmImage: $(imageName)
